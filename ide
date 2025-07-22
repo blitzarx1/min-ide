@@ -1,0 +1,70 @@
+#!/bin/sh
+
+IMAGE_NAME="ide"
+PROJECT_PATH="/project"
+SSH_DIR="$HOME/.ssh"
+DEFAULT_GITCONFIG="$HOME/.gitconfig"
+CUSTOM_GITCONFIG=""
+DRY_RUN=false
+POSITIONAL=()
+
+# Parse flags
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --gitconfig)
+      CUSTOM_GITCONFIG="$2"
+      shift 2
+      ;;
+    --dry-run)
+      DRY_RUN=true
+      shift
+      ;;
+    *)
+      POSITIONAL+=("$1")
+      shift
+      ;;
+  esac
+done
+
+# Restore positional arg (target path)
+set -- "${POSITIONAL[@]}"
+TARGET="${1:-$PWD}"
+ABS_TARGET="$(cd "$(dirname "$TARGET")" 2>/dev/null && pwd)/$(basename "$TARGET")"
+
+# Validate path
+if [ -d "$ABS_TARGET" ]; then
+  MOUNT_DIR="$ABS_TARGET"
+  if [ "$TARGET" = "$PWD" ]; then
+    OPEN_TARGET="--cmd 'enew'"  # open scratch buffer
+  else
+    OPEN_TARGET="."
+  fi
+elif [ -f "$ABS_TARGET" ]; then
+  MOUNT_DIR="$(dirname "$ABS_TARGET")"
+  OPEN_TARGET="$(basename "$ABS_TARGET")"
+else
+  echo "[!] Error: '$TARGET' is not a valid file or directory"
+  exit 1
+fi
+
+# Build docker run command
+CMD="docker run --rm -it \
+  -v \"$MOUNT_DIR\":\"$PROJECT_PATH\" \
+  -w \"$PROJECT_PATH\""
+
+[ -d "$SSH_DIR" ] && CMD="$CMD -v \"$SSH_DIR\":/root/.ssh:ro"
+
+if [ -n "$CUSTOM_GITCONFIG" ]; then
+  CMD="$CMD -v \"$CUSTOM_GITCONFIG\":/root/.gitconfig:ro"
+elif [ -f "$DEFAULT_GITCONFIG" ]; then
+  CMD="$CMD -v \"$DEFAULT_GITCONFIG\":/root/.gitconfig:ro"
+fi
+
+CMD="$CMD $IMAGE_NAME nvim $OPEN_TARGET"
+
+# Print or run
+if $DRY_RUN; then
+  echo "$CMD"
+else
+  eval "$CMD"
+fi
