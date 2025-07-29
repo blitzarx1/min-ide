@@ -82,6 +82,7 @@ cmp.setup({
     ["<CR>"] = cmp.mapping.confirm({ select = true }),
   }),
   sources = {
+    { name = "nvim_lsp" },
     { name = "buffer" },
     { name = "path" },
   },
@@ -95,6 +96,55 @@ cmp.setup.cmdline(":", {
   },
 })
 -- cmp: end
+
+-- lsp: start
+require("mason").setup()
+require("mason-lspconfig").setup({
+  ensure_installed = { "gopls" },
+  automatic_installation = false,
+})
+
+local lspconfig = require("lspconfig")
+local capabilities = require("cmp_nvim_lsp").default_capabilities()
+
+-- LSP keymaps
+local on_attach = function(client, bufnr)
+  local opts = { noremap = true, silent = true, buffer = bufnr }
+  vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
+  vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
+  vim.keymap.set("n", "<leader>i", vim.lsp.buf.implementation, opts)
+  vim.keymap.set("n", "gr", vim.lsp.buf.references, opts)
+  vim.keymap.set("n", "<leader>r", vim.lsp.buf.rename, opts)
+  vim.keymap.set("n", "<leader>a", vim.lsp.buf.code_action, opts)
+  vim.keymap.set("n", "<leader>f", function() vim.lsp.buf.format({ async = true }) end, opts)
+end
+
+-- Setup gopls
+lspconfig.gopls.setup({
+  capabilities = capabilities,
+  on_attach = on_attach,
+  settings = {
+    gopls = {
+      analyses = {
+        unusedparams = true,
+      },
+      staticcheck = true,
+      gofumpt = true,
+    },
+  },
+})
+-- lsp: end
+
+-- overseer: start
+require("overseer").setup({
+  templates = { "builtin", "user.go_build", "user.go_run", "user.go_test" },
+})
+
+-- Task keymaps
+vim.keymap.set("n", "<leader>oo", "<cmd>OverseerOpen<cr>", { desc = "Open task list" })
+vim.keymap.set("n", "<leader>or", "<cmd>OverseerRun<cr>", { desc = "Run task" })
+vim.keymap.set("n", "<leader>ot", "<cmd>OverseerToggle<cr>", { desc = "Toggle task list" })
+-- overseer: end
 -- treesitter: start
 require'nvim-treesitter.configs'.setup {
   ensure_installed = { 
